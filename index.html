@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frutiger Aero Live Wallpaper</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #06213a; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #debug { position: fixed; left: 12px; bottom: 12px; padding: 8px 10px; border-radius: 8px; white-space: pre;
+    font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; color: #fff; background: rgba(0, 20, 40, .65); pointer-events: none; }
+  #debug[hidden] { display: none; }
+</style>
+</head>
+<body>
+<canvas id="wall"></canvas>
+<div id="debug" hidden></div>
+<script src="config.js"></script>
+<script>window.Aero = { cfg: window.AERO_CONFIG, PW: 1536, PH: 1024 };</script>
+<script src="js/util.js"></script>
+<script src="js/time.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/actors.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
