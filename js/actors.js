@@ -10,11 +10,86 @@
   var rainbowAmt = 0;
 
   /* ---------------------------------------------------------------- helpers */
-  function sprite(ctx, img, len) {
-    var ar = img.height / img.width;
-    ctx.drawImage(img, -len / 2, -len * ar / 2, len, len * ar);
-  }
   function between(range) { return U.rand(range[0], range[1]); }
+
+  /* ---------------------------------------------------------------- making the still sprites move */
+  // Frame-strip animation from art/anim (if present): { img, frames, fps }, frames laid left to right.
+  function animFrame(ctx, a, len, t) {
+    var fw = a.img.width / a.frames, ar = a.img.height / fw, f = Math.floor(t * a.fps) % a.frames;
+    ctx.drawImage(a.img, f * fw, 0, fw, a.img.height, -len / 2, -len * ar / 2, len, len * ar);
+  }
+  function anim(name) { return art.anim && art.anim[name]; }
+
+  // Fish seen side-on: the back of the body and the tail squeeze and stretch in a travelling wave,
+  // which is how a side-to-side tail beat reads from the side. Slices are laid from the nose back,
+  // so the head stays still.
+  function fishSwim(ctx, img, len, t, beat) {
+    var n = 16, sw = img.width / n, h = len * img.height / img.width, k, widths = [];
+    for (k = 0; k < n; k++) {
+      var u = (k + 0.5) / n, tail = Math.pow(Math.max(0, 1 - u / 0.6), 1.5);
+      widths.push(1 - 0.42 * tail * (0.5 + 0.5 * Math.sin(beat * t - u * 4)));
+    }
+    var x = len / 2;
+    for (k = n - 1; k >= 0; k--) {
+      var dw = widths[k] * len / n, u2 = (k + 0.5) / n;
+      var sway = Math.sin(beat * t - u2 * 4) * Math.pow(1 - u2, 2) * len * 0.015;
+      ctx.drawImage(img, k * sw, 0, sw, img.height, x - dw - 0.5, -h / 2 + sway, dw + 1, h);
+      x -= dw;
+    }
+  }
+
+  // Dolphins beat their flukes up and down: a vertical wave through the back half.
+  function bodyWave(ctx, img, len, t, beat, amp) {
+    var n = 16, sw = img.width / n, h = len * img.height / img.width, k;
+    for (k = 0; k < n; k++) {
+      var u = (k + 0.5) / n, bend = Math.pow(Math.max(0, 1 - u / 0.55), 2);
+      var dy = Math.sin(beat * t - u * 3) * bend * amp * len;
+      ctx.drawImage(img, k * sw, 0, sw, img.height, -len / 2 + k * len / n - 0.5, -h / 2 + dy, len / n + 1, h);
+    }
+  }
+
+  // Turtle: the flippers and head are cut out of the sprite and swung around their joints.
+  // Coordinates are fractions of turtle.png (facing right). Each "piece" is removed from the body
+  // and drawn rotated on top; "cut" (if given) removes less, for parts that barely move. Where a
+  // flipper overlapped the body, "under" is filled with skin colour so no gap opens at the joint.
+  var TURTLE_RIG = [
+    { pivot: [0.22, 0.56], range: [-0.24, 0.2], lag: 0.7,
+      piece: [[0.255, 0.5], [0.17, 0.485], [0.1, 0.495], [0.05, 0.5], [0, 0.55], [0, 1], [0.14, 1], [0.2, 0.7], [0.255, 0.645]],
+      under: [[0.255, 0.5], [0.17, 0.485], [0.165, 0.53], [0.2, 0.58], [0.255, 0.585]], skin: [119, 107, 50] },
+    { pivot: [0.79, 0.33], range: [-0.06, 0.05], lag: 1.4,
+      piece: [[0.76, 0.22], [0.83, 0.12], [0.95, 0.13], [1, 0.27], [1, 0.43], [0.92, 0.48], [0.82, 0.45], [0.77, 0.42]],
+      cut: [[0.845, 0.11], [0.95, 0.13], [1, 0.27], [1, 0.43], [0.92, 0.48], [0.845, 0.46]] },
+    { pivot: [0.775, 0.45], range: [-0.42, 0.34], lag: 0,
+      piece: [[0.6, 0.645], [0.64, 0.56], [0.7, 0.47], [0.76, 0.415], [0.82, 0.415], [0.85, 0.47], [0.92, 0.6], [0.92, 1.02], [0.45, 1.02], [0.5, 0.8], [0.56, 0.7]],
+      under: [[0.655, 0.55], [0.7, 0.47], [0.76, 0.415], [0.82, 0.415], [0.84, 0.47], [0.8, 0.53], [0.72, 0.538]], skin: [125, 110, 62] }
+  ];
+  function addPoly(ctx, pts, len, h) {
+    pts.forEach(function (p, k) { var x = -len / 2 + p[0] * len, y = -h / 2 + p[1] * h; if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+    ctx.closePath();
+  }
+  // Stroke angle 0..1: the power stroke (down and back) is quicker than the recovery.
+  function stroke(phase) { return (1 - Math.cos(phase + 0.35 * Math.sin(phase))) / 2; }
+  function turtleRig(ctx, img, len, phase, P) {
+    var h = len * img.height / img.width;
+    TURTLE_RIG.forEach(function (p) {
+      if (!p.under) return;
+      ctx.fillStyle = U.rgba(p.skin); ctx.beginPath(); addPoly(ctx, p.under, len, h); ctx.fill();
+    });
+    ctx.save();
+    ctx.beginPath(); ctx.rect(-len / 2 - 2, -h / 2 - 2, len + 4, h + 4);
+    TURTLE_RIG.forEach(function (p) { addPoly(ctx, p.cut || p.piece, len, h); });
+    ctx.clip('evenodd');
+    ctx.drawImage(img, -len / 2, -h / 2, len, h);
+    ctx.restore();
+    TURTLE_RIG.forEach(function (p) {
+      var ang = U.lerp(p.range[0], p.range[1], stroke(phase - p.lag));
+      var px = -len / 2 + p.pivot[0] * len, py = -h / 2 + p.pivot[1] * h;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.translate(-px, -py);
+      ctx.beginPath(); addPoly(ctx, p.piece, len, h); ctx.clip();
+      ctx.drawImage(img, -len / 2, -h / 2, len, h);
+      ctx.restore();
+    });
+  }
 
   /* ---------------------------------------------------------------- sky: stars and shooting stars */
   var stars = [];
@@ -333,6 +408,7 @@
     f.y = between(L.fishBand) * PH;
     f.v = U.rand(18, 42) * (f.len / 60);
     f.p = Math.random() * TAU;
+    f.beat = U.rand(7, 10) * Math.sqrt(60 / f.len);
     f.x = initial ? U.rand(0, PW) : (f.dir > 0 ? -f.len - U.rand(0, 300) : PW + f.len + U.rand(0, 300));
   }
   var fishes = []; for (i = 0; i < 12; i++) { var nf = {}; newFish(nf, true); fishes.push(nf); }
@@ -380,7 +456,7 @@
   function updTurtle(dt) {
     if (!turtle.active) {
       turtle.wait -= dt;
-      if (turtle.wait <= 0) { turtle.active = true; turtle.dir = Math.random() < 0.5 ? 1 : -1; turtle.x = turtle.dir > 0 ? -120 : PW + 120; turtle.y = U.rand(0.65, 0.74) * PH; turtle.v = U.rand(14, 20); turtle.len = U.rand(110, 140); }
+      if (turtle.wait <= 0) { turtle.active = true; turtle.dir = Math.random() < 0.5 ? 1 : -1; turtle.x = turtle.dir > 0 ? -120 : PW + 120; turtle.y = U.rand(0.65, 0.74) * PH; turtle.v = U.rand(14, 20); turtle.len = U.rand(110, 140); turtle.p = Math.random() * TAU; }
       return;
     }
     turtle.x += turtle.dir * turtle.v * dt;
@@ -391,8 +467,12 @@
     updSchool(dt); drawSchool(ctx, P, t);
     updTurtle(dt);
     if (turtle.active) {
-      ctx.save(); ctx.translate(turtle.x, turtle.y + Math.sin(t * 0.5) * 6); ctx.scale(turtle.dir, 1); ctx.rotate(Math.sin(t * 0.4) * 0.05);
-      if (art.turtle) sprite(ctx, art.turtle, turtle.len); else turtleProc(ctx, turtle.len, t, P);
+      var tp = t * 2.4 + (turtle.p || 0);   // one flipper stroke every ~2.6 s
+      ctx.save(); ctx.translate(turtle.x, turtle.y + Math.sin(t * 0.5) * 6 - stroke(tp) * 4); ctx.scale(turtle.dir, 1); ctx.rotate(Math.sin(t * 0.4) * 0.05);
+      var ta = anim('turtle');
+      if (ta) animFrame(ctx, ta, turtle.len, t);
+      else if (art.turtle) turtleRig(ctx, art.turtle, turtle.len, tp);
+      else turtleProc(ctx, turtle.len, t, P);
       ctx.restore();
     }
     fishes.forEach(function (f) {
@@ -400,8 +480,9 @@
       if ((f.dir > 0 && f.x > PW + f.len + 20) || (f.dir < 0 && f.x < -f.len - 20)) newFish(f, false);
       var y = f.y + Math.sin(t * 1.1 + f.p) * 6;
       ctx.save(); ctx.translate(f.x, y); ctx.scale(f.dir, 1); ctx.rotate(Math.sin(t * 1.7 + f.p) * 0.04);
-      var img = art[KINDS[f.kind].name];
-      if (img) { ctx.scale(1 + Math.sin(t * 8 + f.p) * 0.025, 1); sprite(ctx, img, f.len); }
+      var name = KINDS[f.kind].name, fa = anim(name), img = art[name];
+      if (fa) animFrame(ctx, fa, f.len, t + f.p);
+      else if (img) fishSwim(ctx, img, f.len, t + f.p, f.beat || 8);
       else fishProc(ctx, f.len, f.kind, t + f.p, P);
       ctx.restore();
     });
@@ -596,7 +677,10 @@
           var dy = 4 * pk * (2 * s - 1), dx = Math.abs(pod.x1 - pod.x0);
           var fade = U.clamp((s + 0.2) / 0.1, 0, 1) * U.clamp((1.2 - s) / 0.1, 0, 1);
           l.save(); l.globalAlpha = fade; l.translate(x, y); l.scale(pod.dir, 1); l.rotate(Math.atan2(dy, dx));
-          if (art.dolphin) { l.rotate(0.35); sprite(l, art.dolphin, pod.len * m.sc); } // the sprite is already drawn nose-up
+          var da = anim('dolphin');
+          if (da || art.dolphin) l.rotate(CFG.art.dolphinTilt == null ? 0.35 : CFG.art.dolphinTilt); // the sprite is drawn nose-up
+          if (da) animFrame(l, da, pod.len * m.sc, t);
+          else if (art.dolphin) bodyWave(l, art.dolphin, pod.len * m.sc, t + m.off, 9, 0.035);
           else dolphinProc(l, pod.len * m.sc, P);
           l.restore();
         });
@@ -627,6 +711,7 @@
   /* ---------------------------------------------------------------- public */
   A.Actors = {
     init: function (sprites) { art = sprites || {}; },
+    rig: { turtle: turtleRig, fish: fishSwim, wave: bodyWave },  // exposed for testing
     sky: function (ctx, P, w, t, dt, withLayer) {
       drawStars(ctx, P, w, t, dt);
       drawRainbow(ctx, P, w, dt, withLayer);

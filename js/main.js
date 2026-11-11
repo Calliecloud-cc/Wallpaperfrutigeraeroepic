@@ -56,6 +56,19 @@
     Promise.all(snames.map(function (n) { return U.loadImage(C.art.sprites[n]); })).then(function (imgs) {
       snames.forEach(function (n, j) { if (imgs[j]) sprites[n] = imgs[j]; });
     });
+    // Optional frame-strip animations: art/anim/manifest.json → { "turtle": { "file": "turtle.png", "frames": 12, "fps": 10 }, ... }
+    fetch('art/anim/manifest.json', { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error('none'); return r.json(); })
+      .then(function (man) {
+        Object.keys(man).forEach(function (n) {
+          var e = man[n];
+          if (!e || !e.file || !(e.frames > 0)) return;
+          U.loadImage('art/anim/' + e.file).then(function (img) {
+            if (img) { sprites.anim = sprites.anim || {}; sprites.anim[n] = { img: img, frames: e.frames | 0, fps: e.fps || 10 }; }
+          });
+        });
+      })
+      .catch(function () { /* no animations yet: the sprites are rigged in code instead */ });
   }
   A.Actors.init(sprites);
 
