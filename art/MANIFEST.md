@@ -1,6 +1,8 @@
 # Art v1 manifest
 
-Generated 11 November 2026 using the built-in GPT Image image generation/edit tool (`image_gen.imagegen`). The tool does not expose the underlying model version, a quality selector or a numeric output-size parameter. Every prompt explicitly requested high quality and the brief’s dimensions. Transparent sprites used `transparent_background: true`; plates used `false`. No substitute image sources were used.
+The existing workspace generation record reports creation on 11 November 2026 using the built-in GPT Image image generation/edit tool (`image_gen.imagegen`). The tool does not expose the underlying model version, a quality selector or a numeric output-size parameter. Every prompt explicitly requested high quality and the brief’s dimensions. Transparent sprites used `transparent_background: true`; plates used `false`. No substitute image sources were used.
+
+The completed assets and generation notes were already present when this hand-off session began. Final dimensions, alpha channels, sprite silhouettes and plate alignment were independently rechecked before committing; model, prompts, attempt counts and edit-input history below are preserved from those generation notes.
 
 ## Workflow and processing
 
@@ -10,16 +12,16 @@ Animal sprites were cropped to the alpha > 8 bounding box, given 8 transparent p
 
 ## Measurements and checks
 
-Rows below are zero-based pixel coordinates in the final 1024-pixel-high WebP files. The surface has a narrow bright edge a few pixels thick. Measurements locate the strongest local vertical RGB transition in rows 580–604, averaged over seven columns centred at each requested x coordinate. This identifies the visible surface edge rather than the distant shoreline at about row 505. Allow about ±3 px for edge thickness and compression.
+Rows below are zero-based pixel coordinates in the final 1024-pixel-high WebP files. The surface has a narrow bright edge a few pixels thick. Measurements locate the strongest local vertical RGB transition in rows 580–604, using the mean absolute per-channel adjacent-row difference over seven columns centred at each requested x coordinate (the reported row is the upper row of the pair). This identifies the visible surface edge rather than the distant shoreline at about row 505. Allow about ±3 px for edge thickness and compression.
 
 | Plate | x = 25% (384) | x = 50% (768) | x = 75% (1152) | Largest offset from day |
 | --- | ---: | ---: | ---: | ---: |
-| day | 590 | 591 | 589 | 0 px |
-| dawn | 592 | 592 | 590 | 2 px |
-| sunset | 591 | 590 | 588 | 1 px |
-| night | 593 | 592 | 592 | 3 px |
+| day | 593 | 591 | 588 | 0 px |
+| dawn | 595 | 591 | 589 | 2 px |
+| sunset | 589 | 590 | 588 | 4 px |
+| night | 592 | 590 | 591 | 3 px |
 
-The day surface is approximately 57.6–57.8% down the image, inside the required 52–60% range. All variants are within ±10 px of day at all three measurement positions. Visual comparison confirms matching hills, building silhouettes, trees and reef locations. Small changes to reflections and cloud texture accompany the lighting changes.
+The day surface is approximately 57.4–57.9% down the image, inside the required 52–60% range. All variants are within ±10 px of day at all three measurement positions. Visual comparison confirms matching hills, building silhouettes, trees and reef locations. Small changes to reflections and cloud texture accompany the lighting changes.
 
 Day horizontal placement: hills-only shore approximately x = 0–46%; tree/shore transition approximately 46–59%; city architecture approximately 59–100%, concentrated on the right third. The left third contains no buildings. The upper-left quarter is empty blue sky; the central sunlight grazes the top edge. Bright coral begins around row 830 (bottom 19%). Open underwater space contains no animals or bubbles. No plate contains turbines, rainbow, globe, text, watermark, people or boats.
 
