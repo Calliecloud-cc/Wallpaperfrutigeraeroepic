@@ -40,8 +40,15 @@ window.AERO_CONFIG = {
       cloud1: 'art/sprites/cloud1.png',
       cloud2: 'art/sprites/cloud2.png',
       cloud3: 'art/sprites/cloud3.png',
-      cloud4: 'art/sprites/cloud4.png'
+      cloud4: 'art/sprites/cloud4.png',
+      turbineTower: 'art/sprites/turbine_tower.png',
+      turbineRotor: 'art/sprites/turbine_rotor.png',
+      butterfly: 'art/sprites/butterfly.png',
+      splash: 'art/sprites/splash.png'
     },
+    // Wind turbine cut-outs: where the rotor's hub sits on the tower image (fractions across and
+    // down), and the rotor's diameter as a fraction of the hub height.
+    turbine: { hub: [0.5, 0.06], rotor: 0.95 },
     // How much of each jellyfish image (from the top) is the bell; the rest is tentacles.
     jellyBell: { jellyfish: 0.42, jellyfish2: 0.42 }
   },

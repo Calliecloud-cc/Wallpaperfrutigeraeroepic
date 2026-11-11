@@ -274,17 +274,23 @@
         m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
         l.fillStyle = m; l.fillRect(fadeX0, 0, PW - fadeX0, FS);
       }
-      l.globalCompositeOperation = 'source-atop';
-      if (P.warm > 0.02) {
-        var g = l.createLinearGradient(0, 0, 0, FS);
-        g.addColorStop(0, U.rgba(U.mix(P.glow, [255, 170, 150], 0.3), P.warm * 0.25));
-        g.addColorStop(1, U.rgba(U.mix(P.glow, [255, 130, 90], 0.5), P.warm * 0.55));
-        l.fillStyle = g; l.fillRect(0, 0, PW, FS);
-      }
-      if (P.night > 0.02) { l.fillStyle = U.rgba([24, 34, 72], P.night * 0.8); l.fillRect(0, 0, PW, FS); }
-      var grey = U.sstep(0.5, 1, w.cloud) * 0.45 + w.storm * 0.3;
-      if (grey > 0.02) { l.fillStyle = U.rgba([118, 126, 140], grey); l.fillRect(0, 0, PW, FS); }
+      skyTint(l, P, w, 1);
     });
+  }
+
+  // Light a layer of sky objects for the time of day and weather: warm at dawn and dusk,
+  // dark blue at night, greyer under heavy cloud. Only touches what's already drawn in the layer.
+  function skyTint(l, P, w, strength) {
+    l.globalCompositeOperation = 'source-atop';
+    if (P.warm > 0.02) {
+      var g = l.createLinearGradient(0, 0, 0, FS);
+      g.addColorStop(0, U.rgba(U.mix(P.glow, [255, 170, 150], 0.3), P.warm * 0.25 * strength));
+      g.addColorStop(1, U.rgba(U.mix(P.glow, [255, 130, 90], 0.5), P.warm * 0.55 * strength));
+      l.fillStyle = g; l.fillRect(0, 0, PW, FS);
+    }
+    if (P.night > 0.02) { l.fillStyle = U.rgba([24, 34, 72], P.night * 0.8); l.fillRect(0, 0, PW, FS); }
+    var grey = U.sstep(0.5, 1, w.cloud) * 0.45 + w.storm * 0.3;
+    if (grey > 0.02) { l.fillStyle = U.rgba([118, 126, 140], grey * strength); l.fillRect(0, 0, PW, FS); }
   }
 
   /* ---------------------------------------------------------------- birds, turbines, butterflies, fireflies */
@@ -318,10 +324,27 @@
   }
 
   var turbineAng = L.turbines.map(function (_, k) { return k * 1.7; });
-  function drawTurbines(ctx, P, w, t, dt) {
+  function drawTurbines(ctx, P, w, t, dt, withLayer) {
+    L.turbines.forEach(function (tb, k) { turbineAng[k] += dt * (0.5 + w.wind / 25) * (0.85 + k * 0.07); });
+    var tower = art.turbineTower, rotor = art.turbineRotor;
+    if (tower && rotor) {
+      // Tower cut-out stands on the hill with its hub point (config.art.turbine.hub) at hub height;
+      // the rotor cut-out (hub in the centre) spins on top. Both are lit like the sky.
+      var TC = (CFG.art && CFG.art.turbine) || {}, hub = TC.hub || [0.5, 0.06], rotorFrac = TC.rotor || 0.95;
+      withLayer(function (l) {
+        L.turbines.forEach(function (tb, k) {
+          var x = tb.x * PW, y = tb.y * PH, s = tb.h * PH;
+          var sc = s / ((1 - hub[1]) * tower.height), th = tower.height * sc, tw = tower.width * sc;
+          l.drawImage(tower, x - hub[0] * tw, y - th, tw, th);
+          var d = s * rotorFrac;
+          l.save(); l.translate(x, y - s); l.rotate(turbineAng[k]); l.drawImage(rotor, -d / 2, -d / 2, d, d); l.restore();
+        });
+      }, function (l) { skyTint(l, P, w, 0.8); });
+      turbineLights(ctx, P, t);
+      return;
+    }
     var col = U.rgba(U.mix(U.shade('#ffffff', P), P.bot, 0.18));
     L.turbines.forEach(function (tb, k) {
-      turbineAng[k] += dt * (0.5 + w.wind / 25) * (0.85 + k * 0.07);
       var x = tb.x * PW, y = tb.y * PH, s = tb.h * PH;
       ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(x - s * 0.018, y); ctx.lineTo(x - s * 0.008, y - s); ctx.lineTo(x + s * 0.008, y - s); ctx.lineTo(x + s * 0.018, y); ctx.closePath(); ctx.fill();
@@ -330,10 +353,15 @@
         ctx.beginPath(); ctx.ellipse(0, -s * 0.24, s * 0.022, s * 0.25, 0, 0, TAU); ctx.fill(); ctx.restore();
       }
       U.circle(ctx, x, y - s, s * 0.03); ctx.fill();
-      if (P.night > 0.1) {
-        var bl = Math.max(0, Math.sin(t * 2.2 + k));
-        ctx.fillStyle = U.rgba([255, 60, 60], P.night * bl); U.circle(ctx, x, y - s - s * 0.03, s * 0.025); ctx.fill();
-      }
+    });
+    turbineLights(ctx, P, t);
+  }
+  // Red aircraft lights blink on top of each turbine at night.
+  function turbineLights(ctx, P, t) {
+    if (P.night <= 0.1) return;
+    L.turbines.forEach(function (tb, k) {
+      var x = tb.x * PW, y = tb.y * PH, s = tb.h * PH, bl = Math.max(0, Math.sin(t * 2.2 + k));
+      ctx.fillStyle = U.rgba([255, 60, 60], P.night * bl); U.circle(ctx, x, y - s - s * 0.04, Math.max(1, s * 0.025)); ctx.fill();
     });
   }
 
@@ -341,6 +369,16 @@
     if (a < 0.03) return;
     var flap = 0.22 + 0.78 * Math.abs(Math.cos(t * 11));
     ctx.save(); ctx.translate(x, y); ctx.rotate(-0.3); ctx.globalAlpha = a;
+    var img = art.butterfly;
+    if (img) {
+      // top-down cut-out with the body down the middle: squeeze each half towards the body to flap
+      var bw = s * 2.6, bh = bw * img.height / img.width, iw = img.width / 2;
+      ctx.save(); ctx.scale(flap, 1);
+      ctx.drawImage(img, 0, 0, iw, img.height, -bw / 2, -bh / 2, bw / 2 + 0.3, bh);
+      ctx.drawImage(img, iw, 0, iw, img.height, 0, -bh / 2, bw / 2, bh);
+      ctx.restore(); ctx.restore();
+      return;
+    }
     [-1, 1].forEach(function (side) {
       ctx.save(); ctx.scale(side * flap, 1);
       var g = ctx.createLinearGradient(0, -s, s, s);
@@ -740,7 +778,7 @@
   }
   function splash(x, big) {
     for (var k = 0; k < (big ? 18 : 10); k++) drops.push({ x: x + U.rand(-10, 10), y: WL, vx: U.rand(-110, 110), vy: -U.rand(120, big ? 300 : 200), life: 0, max: U.rand(0.7, 1.2), r: U.rand(1.5, 3.5) });
-    foams.push({ x: x, life: 0 });
+    foams.push({ x: x, life: 0, big: big });
   }
   function drawDolphins(ctx, P, w, t, dt, withLayer) {
     if (!pod) {
@@ -785,6 +823,17 @@
       ctx.fillStyle = U.rgba([235, 250, 255], 0.85 * (1 - d.life / d.max) * (0.4 + 0.6 * P.light));
       U.circle(ctx, d.x, d.y, d.r); ctx.fill();
     }
+    if (art.splash) {
+      // photo splash: rises from the surface, then falls back and fades
+      foams.forEach(function (f) {
+        var u = f.life / 1.1; if (u >= 1) return;
+        var hgt = (f.big ? 100 : 66) * (0.55 + 0.6 * Math.min(1, u * 2.4)) * (1 - 0.25 * Math.max(0, u - 0.5));
+        var wdt = hgt * art.splash.width / art.splash.height;
+        ctx.globalAlpha = (1 - u) * (0.45 + 0.55 * P.light);
+        ctx.drawImage(art.splash, f.x - wdt / 2, WL - hgt * 0.92, wdt, hgt);
+        ctx.globalAlpha = 1;
+      });
+    }
     for (k = foams.length - 1; k >= 0; k--) {
       var f = foams[k]; f.life += dt;
       if (f.life > 1.4) { foams.splice(k, 1); continue; }
@@ -804,7 +853,7 @@
       drawGlobe(ctx, P, t);
       drawClouds(ctx, P, w, dt, withLayer);
       drawBirds(ctx, P, w, t, dt);
-      drawTurbines(ctx, P, w, t, dt);
+      drawTurbines(ctx, P, w, t, dt, withLayer);
       drawShoreLife(ctx, P, w, t);
     },
     underwater: function (ctx, P, w, t, dt, withLayer) {
