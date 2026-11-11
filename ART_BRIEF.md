@@ -123,7 +123,13 @@ Include:
 
 ## Hand-off
 
-1. Create a branch named `art-v1` from `main`.
+1. Work on a branch named `art-v1`, created from `main`. If your environment names branches itself, any name is fine.
 2. Commit only the 11 image files and `art/MANIFEST.md`. Leave the `.gitkeep` files alone, and don't touch code.
-3. Push `art-v1`. **Don't merge it into `main`.** Claude will line the animation up with the art first, then merge.
+3. Push the branch, or let it become a pull request into `main`. **Don't merge it.** Claude will line the animation up with the art first, then merge.
 4. Finish by summarising what you made and anything that needs a second look.
+
+## If you get stuck
+
+- **No image generation available:** say so plainly and stop. Don't substitute stock images, drawings or placeholders.
+- **Pillow missing:** install it with `pip install pillow`.
+- **Can't include binary files in the commit or pull request:** say so, and leave the finished files in the workspace under `art/` so they can be downloaded and uploaded by hand.
