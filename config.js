@@ -33,8 +33,17 @@ window.AERO_CONFIG = {
       bluetang: 'art/sprites/bluetang.png',
       yellowtang: 'art/sprites/yellowtang.png',
       angelfish: 'art/sprites/angelfish.png',
-      turtle: 'art/sprites/turtle.png'
-    }
+      turtle: 'art/sprites/turtle.png',
+      sardine: 'art/sprites/sardine.png',
+      jellyfish: 'art/sprites/jellyfish.png',
+      jellyfish2: 'art/sprites/jellyfish2.png',
+      cloud1: 'art/sprites/cloud1.png',
+      cloud2: 'art/sprites/cloud2.png',
+      cloud3: 'art/sprites/cloud3.png',
+      cloud4: 'art/sprites/cloud4.png'
+    },
+    // How much of each jellyfish image (from the top) is the bell; the rest is tentacles.
+    jellyBell: { jellyfish: 0.42, jellyfish2: 0.42 }
   },
 
   // Where things sit, as fractions of the 3:2 artwork (0,0 = top left, 1,1 = bottom right).

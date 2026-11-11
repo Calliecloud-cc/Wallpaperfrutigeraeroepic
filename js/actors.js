@@ -23,8 +23,8 @@
   // Fish seen side-on: the back of the body and the tail squeeze and stretch in a travelling wave,
   // which is how a side-to-side tail beat reads from the side. Slices are laid from the nose back,
   // so the head stays still.
-  function fishSwim(ctx, img, len, t, beat) {
-    var n = 16, sw = img.width / n, h = len * img.height / img.width, k, widths = [];
+  function fishSwim(ctx, img, len, t, beat, slices) {
+    var n = slices || 16, sw = img.width / n, h = len * img.height / img.width, k, widths = [];
     for (k = 0; k < n; k++) {
       var u = (k + 0.5) / n, tail = Math.pow(Math.max(0, 1 - u / 0.6), 1.5);
       widths.push(1 - 0.42 * tail * (0.5 + 0.5 * Math.sin(beat * t - u * 4)));
@@ -242,8 +242,10 @@
   /* ---------------------------------------------------------------- clouds */
   var cloudImgs = [0, 1, 2, 3, 4].map(function (k) { return U.cloudBitmap(11 + k * 7); });
   var clouds = [];
-  for (i = 0; i < 10; i++) clouds.push({ img: cloudImgs[i % 5], x: R() * PW * 1.4 - 300, y: (0.04 + R() * 0.26) * PH, s: 0.4 + R() * 0.75, v: 3 + R() * 6, rank: (i * 7) % 10 });
+  for (i = 0; i < 10; i++) clouds.push({ k: i, x: R() * PW * 1.4 - 300, y: (0.04 + R() * 0.26) * PH, s: 0.4 + R() * 0.75, v: 3 + R() * 6, rank: (i * 7) % 10 });
   clouds.sort(function (a, b) { return a.s - b.s; });
+  // Photo cloud cut-outs (cloud1..cloud4) replace the painted ones once they exist.
+  function photoClouds() { return ['cloud1', 'cloud2', 'cloud3', 'cloud4'].map(function (n) { return art[n]; }).filter(Boolean); }
 
   function drawClouds(ctx, P, w, dt, withLayer) {
     // The artwork has its own clouds, so with it on, drifting clouds stay small, high and over the
@@ -251,16 +253,18 @@
     var art = A.platesOn;
     var nf = art ? 1 + 8 * U.clamp((w.cloud - 0.2) / 0.8, 0, 1) : 3 + 7 * w.cloud, speed = 0.6 + w.wind / 22;
     var fadeX0 = (A.cfg.layout.cloudFadeX || [0.4, 0.55])[0] * PW, fadeX1 = (A.cfg.layout.cloudFadeX || [0.4, 0.55])[1] * PW;
+    var photos = photoClouds(), set = photos.length ? photos : cloudImgs;
     withLayer(function (l) {
       clouds.forEach(function (c) {
         c.x += c.v * speed * dt;
-        var sc = art ? c.s * 0.7 : c.s, cw = 460 * sc, ch = 230 * sc, y = art ? c.y * 0.6 : c.y;
+        var img = set[c.k % set.length];
+        var sc = art ? c.s * 0.7 : c.s, cw = (photos.length ? 520 : 460) * sc, ch = cw * img.height / img.width, y = art ? c.y * 0.6 : c.y;
         var maxX = art ? fadeX1 : PW + 40;
         if (c.x > maxX) { c.x = -cw - U.rand(0, 200); c.y = (0.04 + Math.random() * 0.26) * PH; }
         var a = U.clamp(nf - c.rank, 0, 1);
         if (a < 0.01) return;
-        l.globalAlpha = a * (art ? 0.8 : 0.85 + 0.15 * w.cloud);
-        l.drawImage(c.img, c.x, y - ch / 2, cw, ch);
+        l.globalAlpha = a * (photos.length ? 0.95 : art ? 0.8 : 0.85 + 0.15 * w.cloud);
+        l.drawImage(img, c.x, y - ch / 2, cw, ch);
       });
       l.globalAlpha = 1;
     }, function (l) {
@@ -413,26 +417,56 @@
   }
   var fishes = []; for (i = 0; i < 12; i++) { var nf = {}; newFish(nf, true); fishes.push(nf); }
 
-  var school = { dir: 1, x: -200, y: 0.7 * PH, v: 30, wait: 3, fish: [] };
-  for (i = 0; i < 22; i++) { var a = R() * TAU, rr = Math.sqrt(R()); school.fish.push({ ox: Math.cos(a) * rr * 80, oy: Math.sin(a) * rr * 30, p: R() * TAU, s: 6 + R() * 3 }); }
+  /* A shoal of small silver fish. Every fish follows the leader's wavy path a moment behind it,
+     so the shoal bends as it turns; the ball breathes in and out, and silver flashes ripple
+     through it as the fish catch the light. Uses sardine.png when it exists. */
+  var school = { dir: 1, x0: 0, y0: 0.7 * PH, v: 40, tau: 0, wait: 3, fish: [] };
+  for (i = 0; i < 34; i++) {
+    var sa = R() * TAU, sr = Math.sqrt(R());
+    school.fish.push({ ox: Math.cos(sa) * sr, oy: Math.sin(sa) * sr, lag: R() * 0.5, p: R() * TAU, len: 15 + R() * 8, beat: 12 + R() * 5 });
+  }
+  function schoolPath(tau) {
+    return { x: school.x0 + school.dir * school.v * tau, y: school.y0 + 26 * Math.sin(tau * 0.35) + 10 * Math.sin(tau * 0.9),
+      dy: 26 * 0.35 * Math.cos(tau * 0.35) + 10 * 0.9 * Math.cos(tau * 0.9) };
+  }
   function updSchool(dt) {
     if (school.wait > 0) {
       school.wait -= dt;
-      if (school.wait <= 0) { school.dir = Math.random() < 0.5 ? 1 : -1; school.x = school.dir > 0 ? -150 : PW + 150; school.y = U.rand(0.64, 0.8) * PH; school.v = U.rand(35, 55); }
+      if (school.wait <= 0) {
+        school.dir = Math.random() < 0.5 ? 1 : -1; school.x0 = school.dir > 0 ? -160 : PW + 160;
+        school.y0 = U.rand(0.66, 0.76) * PH; school.v = U.rand(38, 58); school.tau = 0;
+      }
       return;
     }
-    school.x += school.dir * school.v * dt;
-    if (school.x < -220 || school.x > PW + 220) school.wait = U.rand(8, 25);
+    school.tau += dt;
+    var hx = schoolPath(school.tau).x;
+    if ((school.dir > 0 && hx > PW + 260) || (school.dir < 0 && hx < -260)) school.wait = U.rand(10, 25);
+  }
+  function sardineProc(ctx, len, P, flash) {
+    var s = len, back = U.shade('#36607c', P), side = U.shade('#b9cbd8', P), belly = U.shade('#eef4f8', P);
+    ctx.fillStyle = U.rgba(back);
+    ctx.beginPath(); ctx.moveTo(-s * 0.38, 0); ctx.lineTo(-s * 0.52, -s * 0.11); ctx.lineTo(-s * 0.46, 0); ctx.lineTo(-s * 0.52, s * 0.11); ctx.closePath(); ctx.fill();
+    var g = ctx.createLinearGradient(0, -s * 0.1, 0, s * 0.1);
+    g.addColorStop(0, U.rgba(back)); g.addColorStop(0.45, U.rgba(side)); g.addColorStop(1, U.rgba(belly));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.42, s * 0.1, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = U.rgba([20, 30, 40], 0.9); U.circle(ctx, s * 0.31, -s * 0.015, Math.max(0.6, s * 0.022)); ctx.fill();
+    ctx.fillStyle = U.rgba(U.WHITE, 0.35 + 0.65 * flash); ctx.fillRect(-s * 0.3, -s * 0.012, s * 0.55, Math.max(0.6, s * 0.022));
   }
   function drawSchool(ctx, P, t) {
     if (school.wait > 0) return;
-    var body = U.rgba(U.shade('#c9d8e4', P)), tail = U.rgba(U.shade('#93a8b8', P)), hl = U.rgba(U.WHITE, 0.6 * P.light);
+    var img = art.sardine, tau = school.tau, breathe = 1 + 0.18 * Math.sin(tau * 0.4);
     school.fish.forEach(function (f) {
-      var x = school.x + f.ox + Math.sin(t * 1.3 + f.p) * 6, y = school.y + f.oy + Math.sin(t * 0.6 + f.p) * 8 + Math.sin(t * 0.3) * 20, s = f.s;
-      ctx.save(); ctx.translate(x, y); ctx.scale(school.dir, 1);
-      ctx.fillStyle = tail; ctx.beginPath(); ctx.moveTo(-s * 0.8, 0); ctx.lineTo(-s * 1.4, -s * 0.4); ctx.lineTo(-s * 1.4, s * 0.4); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(0, 0, s, s * 0.3, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = hl; ctx.fillRect(-s * 0.6, -s * 0.08, s * 1.2, s * 0.08);
+      var pt = schoolPath(tau - f.lag);
+      var x = pt.x + school.dir * f.ox * 85 * breathe + Math.sin(t * 1.1 + f.p) * 4;
+      var y = pt.y + f.oy * 30 * (2 - breathe) + Math.sin(t * 0.7 + f.p) * 3;
+      var flash = Math.pow(Math.max(0, Math.sin(tau * 1.3 - f.ox * 3 - f.oy)), 10);
+      ctx.save(); ctx.translate(x, y); ctx.scale(school.dir, 1); ctx.rotate(Math.atan2(pt.dy, school.v));
+      if (img) fishSwim(ctx, img, f.len, t + f.p, f.beat, 6); else sardineProc(ctx, f.len, P, flash);
+      if (flash > 0.05) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = U.rgba(U.WHITE, 0.55 * flash * (0.3 + 0.7 * P.light));
+        ctx.beginPath(); ctx.ellipse(0, 0, f.len * 0.36, f.len * 0.07, 0, 0, TAU); ctx.fill();
+      }
       ctx.restore();
     });
   }
@@ -464,6 +498,7 @@
   }
 
   function drawSeaLife(ctx, P, t, dt) {
+    updJellies(t, dt); drawJellies(ctx, P, t);
     updSchool(dt); drawSchool(ctx, P, t);
     updTurtle(dt);
     if (turtle.active) {
@@ -488,28 +523,79 @@
     });
   }
 
-  /* jellyfish */
-  var jellies = []; for (i = 0; i < 3; i++) jellies.push({ x: (0.25 + i * 0.25 + R() * 0.08) * PW, y: (0.66 + R() * 0.16) * PH, s: 12 + R() * 10, p: R() * TAU, v: 4 + R() * 4, hue: i % 2 ? [255, 140, 220] : [120, 230, 255] });
-  function drawJellies(ctx, P, t, dt) {
-    var a = 0.25 + 0.6 * P.night;
+  /* Jellyfish. The bell contracts and relaxes; each contraction pushes it upward and sends a wave
+     down the tentacles, which trail and sway. Uses jellyfish.png / jellyfish2.png when they exist
+     (the top "bell" fraction of each image is set in config.art.jellyBell); at night they glow. */
+  var jellies = [];
+  for (i = 0; i < 4; i++) jellies.push({ x: (0.15 + i * 0.22 + R() * 0.06) * PW, y: (0.68 + R() * 0.14) * PH, w: 26 + R() * 20, p: R() * TAU, rate: 1.3 + R() * 0.5, v: 7 + R() * 5,
+    kind: i % 2, hue: i % 2 ? [255, 150, 225] : [140, 220, 255] });
+  function jellyRig(ctx, img, w, t, phase, bellFrac) {
+    var iw = img.width, ih = img.height, ibh = ih * bellFrac, h = w * ih / iw, bh = h * bellFrac;
+    var c = Math.sin(phase), sx = 1 - 0.1 * c, sy = 1 + 0.08 * c;
+    var n = 14, sh = (ih - ibh) / n, dh = (h - bh) / n;
+    for (var k = 0; k < n; k++) {
+      var v = (k + 0.5) / n;
+      var sway = Math.sin(phase - 1.2 - v * 3) * v * w * 0.07 + Math.sin(t * 0.6 + v * 2) * v * w * 0.04;
+      var nw = w * (1 - 0.1 * c * (1 - v));
+      ctx.drawImage(img, 0, ibh + k * sh, iw, sh + 1, -nw / 2 + sway, bh * sy + k * dh - 0.5, nw, dh + 1);
+    }
+    ctx.drawImage(img, 0, 0, iw, ibh, -w * sx / 2, 0, w * sx, bh * sy + 0.5);
+  }
+  function jellyProc(ctx, w, t, phase, hue, P) {
+    var c = Math.sin(phase), bw = w * (1 - 0.1 * c) / 2, bh = w * 0.42 * (1 + 0.08 * c), k, q;
+    var rim = U.mix(hue, U.WHITE, 0.55);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = U.rgba(hue, 0.35); ctx.lineWidth = Math.max(0.6, w * 0.018);
+    for (k = 0; k < 9; k++) {   // fine tentacles from the rim
+      var tx = -bw * 0.9 + k * bw * 1.8 / 8;
+      ctx.beginPath(); ctx.moveTo(tx, bh);
+      for (q = 1; q <= 8; q++) { var v = q / 8; ctx.lineTo(tx * (1 - 0.3 * v) + Math.sin(phase - 1.2 - v * 3 + k) * v * w * 0.1, bh + v * w * 1.3); }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = U.rgba(U.mix(hue, U.WHITE, 0.3), 0.5); ctx.lineWidth = Math.max(1, w * 0.07);
+    for (k = -1; k <= 1; k += 2) {   // frilly oral arms
+      ctx.beginPath(); ctx.moveTo(k * bw * 0.15, bh * 0.9);
+      for (q = 1; q <= 6; q++) { var u = q / 6; ctx.lineTo(k * bw * 0.15 + Math.sin(phase - 1 - u * 2.5 + k) * u * w * 0.12, bh + u * w * 0.75); }
+      ctx.stroke();
+    }
+    var g = ctx.createRadialGradient(0, bh * 0.35, bw * 0.1, 0, bh * 0.6, bw * 1.05);
+    g.addColorStop(0, U.rgba(U.mix(hue, U.WHITE, 0.7), 0.35)); g.addColorStop(0.75, U.rgba(hue, 0.3)); g.addColorStop(1, U.rgba(rim, 0.75));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, bh, bw, bh, 0, Math.PI, TAU);
+    for (k = 0; k < 10; k++) { var mx = bw - k * bw * 0.2; ctx.quadraticCurveTo(mx - bw * 0.1, bh * 1.12, mx - bw * 0.2, bh); }  // scalloped rim
+    ctx.fill();
+    ctx.strokeStyle = U.rgba(U.mix(hue, [255, 120, 200], 0.4), 0.55); ctx.lineWidth = Math.max(0.8, w * 0.03);
+    [-0.45, -0.15, 0.15, 0.45].forEach(function (gx) { ctx.beginPath(); ctx.ellipse(gx * bw, bh * 0.68, bw * 0.13, bh * 0.16, 0, 0, TAU); ctx.stroke(); });
+    ctx.fillStyle = U.rgba(U.WHITE, 0.45 * (0.4 + 0.6 * P.light));
+    ctx.beginPath(); ctx.ellipse(-bw * 0.35, bh * 0.35, bw * 0.28, bh * 0.12, -0.5, 0, TAU); ctx.fill();
+  }
+  function updJellies(t, dt) {
     jellies.forEach(function (j) {
-      j.y -= j.v * dt * (0.4 + 0.6 * Math.max(0, Math.sin(t * 1.6 + j.p)));
+      var ph = t * j.rate + j.p;
+      j.y -= j.v * dt * (0.15 + 0.85 * Math.max(0, Math.cos(ph)));
       j.x += Math.sin(t * 0.2 + j.p) * 3 * dt;
-      if (j.y < WL + 50) { j.y = (0.86 + Math.random() * 0.06) * PH; j.x = U.rand(0.08, 0.92) * PW; }
-      var pulse = 1 + Math.sin(t * 1.6 + j.p) * 0.12, s = j.s, x = j.x, y = j.y;
-      ctx.save();
-      if (P.night > 0.3) ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = U.rgba(j.hue, a * 0.5); ctx.lineWidth = 1;
-      for (var k = -2; k <= 2; k++) {
-        ctx.beginPath(); ctx.moveTo(x + k * s * 0.3, y);
-        for (var q = 1; q <= 6; q++) ctx.lineTo(x + k * s * 0.3 + Math.sin(t * 2 + q * 0.8 + k + j.p) * 3, y + q * s * 0.45);
-        ctx.stroke();
-      }
-      var g = ctx.createRadialGradient(x, y - s * 0.3, 0, x, y, s * 1.1);
-      g.addColorStop(0, U.rgba(U.mix(j.hue, U.WHITE, 0.5), a * 0.9)); g.addColorStop(0.7, U.rgba(j.hue, a * 0.45)); g.addColorStop(1, U.rgba(j.hue, 0));
-      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, s * pulse, s * 0.75 / pulse, 0, Math.PI, TAU); ctx.fill();
+      if (j.y < WL + 40) { j.y = (0.84 + Math.random() * 0.05) * PH; j.x = U.rand(0.08, 0.92) * PW; }
+    });
+  }
+  function drawJellies(ctx, P, t) {
+    var bells = (CFG.art && CFG.art.jellyBell) || {};
+    jellies.forEach(function (j) {
+      var ph = t * j.rate + j.p, name = j.kind ? 'jellyfish2' : 'jellyfish', img = art[name] || art.jellyfish;
+      ctx.save(); ctx.translate(j.x, j.y); ctx.rotate(Math.sin(t * 0.3 + j.p) * 0.08);
+      if (img) { ctx.globalAlpha = 0.9; jellyRig(ctx, img, j.w, t, ph, bells[art[name] ? name : 'jellyfish'] || 0.42); }
+      else jellyProc(ctx, j.w, t, ph, j.hue, P);
       ctx.restore();
     });
+  }
+  function drawJellyGlow(ctx, P, t) {
+    if (P.night < 0.1) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    jellies.forEach(function (j) {
+      var pulse = 0.75 + 0.25 * Math.sin(t * j.rate + j.p), r = j.w * 0.9, cy = j.y + j.w * 0.25;
+      var g = ctx.createRadialGradient(j.x, cy, 0, j.x, cy, r);
+      g.addColorStop(0, U.rgba(j.hue, 0.5 * P.night * pulse)); g.addColorStop(1, U.rgba(j.hue, 0));
+      ctx.fillStyle = g; U.circle(ctx, j.x, cy, r); ctx.fill();
+    });
+    ctx.restore();
   }
 
   /* light rays, caustics, snow, seaweed, bubbles */
@@ -711,7 +797,7 @@
   /* ---------------------------------------------------------------- public */
   A.Actors = {
     init: function (sprites) { art = sprites || {}; },
-    rig: { turtle: turtleRig, fish: fishSwim, wave: bodyWave },  // exposed for testing
+    rig: { turtle: turtleRig, fish: fishSwim, wave: bodyWave, jelly: jellyRig, jellyProc: jellyProc, sardine: sardineProc },  // exposed for testing
     sky: function (ctx, P, w, t, dt, withLayer) {
       drawStars(ctx, P, w, t, dt);
       drawRainbow(ctx, P, w, dt, withLayer);
@@ -733,7 +819,7 @@
         g.addColorStop(1, U.rgba(Wc.bot, 0.3 + 0.45 * P.night + 0.2 * w.storm));
         l.fillStyle = g; l.fillRect(0, WL, PW, PH - WL);
       });
-      drawJellies(ctx, P, t, dt);
+      drawJellyGlow(ctx, P, t);
       if (!A.platesOn) drawWeeds(ctx, P, t);  // the artwork has its own reef
       drawBubbles(ctx, P, t, dt);
     },
