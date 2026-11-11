@@ -119,6 +119,10 @@
     var bg = x.createLinearGradient(0, 140, 0, 200);
     bg.addColorStop(0, 'rgba(200,212,228,0)'); bg.addColorStop(1, 'rgba(180,195,215,0.35)');
     x.globalCompositeOperation = 'source-atop'; x.fillStyle = bg; x.fillRect(0, 0, c.width, c.height);
+    // Soften the edges so the clouds sit better next to photographed ones (where canvas blur exists).
+    var soft = document.createElement('canvas'); soft.width = c.width; soft.height = c.height;
+    var sx = soft.getContext('2d');
+    if (typeof sx.filter === 'string') { sx.filter = 'blur(3px)'; sx.drawImage(c, 0, 0); return soft; }
     return c;
   };
 

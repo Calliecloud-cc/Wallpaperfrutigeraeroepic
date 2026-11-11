@@ -92,6 +92,7 @@
     A.Weather.update(dt);
     var w = A.Weather.W.cur;
     var P = A.Time.palette(hour);
+    A.platesOn = !!plates;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     plateSpace(ctx);

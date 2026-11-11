@@ -39,22 +39,28 @@ window.AERO_CONFIG = {
 
   // Where things sit, as fractions of the 3:2 artwork (0,0 = top left, 1,1 = bottom right).
   // Screens that aren't 3:2 crop a little off the top and bottom, so keep key things inside 0.1–0.9.
+  // Measured from the art-v1 plates.
   layout: {
-    waterline: 0.56,     // the water surface cutting across the picture
-    farShore: 0.525,     // where the far shore meets the distant water
-    globe: { x: 0.19, y: 0.2, r: 0.07 },
-    rainbow: { x: 0.5, y: 0.7, r: 0.46, width: 0.055 },
-    turbines: [
-      { x: 0.05, y: 0.505, h: 0.13 },
-      { x: 0.105, y: 0.51, h: 0.11 },
-      { x: 0.155, y: 0.514, h: 0.09 },
-      { x: 0.2, y: 0.517, h: 0.075 },
-      { x: 0.24, y: 0.519, h: 0.06 }
+    waterline: 0.577,    // the water surface cutting across the picture
+    farShore: 0.493,     // where the far shore meets the lagoon
+    globe: { x: 0.17, y: 0.17, r: 0.065 },
+    rainbow: { x: 0.28, y: 0.62, r: 0.36, width: 0.05 },   // arcs over the meadow, clear of the city
+    turbines: [           // standing on the hills on the left (y = where the tower meets the grass)
+      { x: 0.06, y: 0.432, h: 0.12 },
+      { x: 0.11, y: 0.428, h: 0.105 },
+      { x: 0.16, y: 0.436, h: 0.09 },
+      { x: 0.245, y: 0.452, h: 0.07 },
+      { x: 0.295, y: 0.456, h: 0.06 },
+      { x: 0.35, y: 0.462, h: 0.05 }
     ],
     city: { x0: 0.6, x1: 0.97 },
-    reefTop: 0.8,
-    fishBand: [0.62, 0.83]
+    cloudFadeX: [0.4, 0.55],  // with the artwork, drifting clouds fade out here, before the towers
+    reefTop: 0.81,
+    fishBand: [0.63, 0.79]
   },
+
+  // Where the sun is in each artwork plate, so the lens flare comes from the right spot.
+  artSun: { day: [0.5, 0.0], dawn: [0.07, 0.405], sunset: [0.77, 0.34] },
 
   dolphinsEvery: [20, 45]  // seconds between dolphin jumps (random in this range)
 };

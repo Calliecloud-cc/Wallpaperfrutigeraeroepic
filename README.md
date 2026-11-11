@@ -4,7 +4,7 @@ A glossy, mid-2000s style live wallpaper for Windows and Mac. Above the water: b
 
 - **Time of day:** follows Sydney time on a fixed schedule (first light 05:20, sunrise 05:47, sunset 19:32, last light 20:00), whatever time zone the computer is in.
 - **Weather:** live Sydney weather from [Open-Meteo](https://open-meteo.com) (free, no account), checked every 15 minutes. Cloud, fog, rain, drops on the glass and thunderstorms all show up in the scene, and the rainbow gets brighter after a shower.
-- **Artwork:** until the AI artwork is added, the wallpaper paints a stand-in version itself. `ART_BRIEF.md` has the full instructions for generating the art with GPT Image.
+- **Artwork:** four AI-generated backgrounds (dawn, day, sunset, night) that cross-fade through the day, plus cut-outs of the globe, dolphin, fish and turtle, all made with GPT Image. `ART_BRIEF.md` is how they were made and `art/MANIFEST.md` records the details. If an image is ever missing, the wallpaper paints a stand-in for that part instead.
 
 The wallpaper is a single web page, hosted with GitHub Pages:
 

@@ -118,10 +118,21 @@
 
   /* lens flare from the sun */
   function flare(ctx, P, w, t) {
+    var clear = (1 - U.sstep(0.35, 0.8, w.cloud)) * (1 - w.fog) * (1 - w.storm);
+    if (A.platesOn) {
+      // Use the sun painted into each plate; two plates mid-fade each get their own fading flare.
+      var S = A.cfg.artSun || {}, strength = { day: 1, dawn: 0.55, sunset: 0.55 };
+      [[P.plateA, 1 - P.plateT], [P.plateB, P.plateT]].forEach(function (pw) {
+        var pos = S[pw[0]];
+        if (pos && pw[1] > 0.01) flareAt(ctx, pos[0] * PW, pos[1] * PH, clear * pw[1] * (strength[pw[0]] || 0), t);
+      });
+      return;
+    }
     if (!P.sunUp || P.sunY < 0.08) return;
-    var amt = P.light * (1 - U.sstep(0.35, 0.8, w.cloud)) * (1 - w.fog) * (1 - w.storm) * U.sstep(0.08, 0.25, P.sunY);
+    flareAt(ctx, U.lerp(PW * 0.06, PW * 0.94, P.sunX), FS - P.sunY * FS * 0.85, P.light * clear * U.sstep(0.08, 0.25, P.sunY), t);
+  }
+  function flareAt(ctx, x, y, amt, t) {
     if (amt < 0.02) return;
-    var x = U.lerp(PW * 0.06, PW * 0.94, P.sunX), y = FS - P.sunY * FS * 0.85;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     var g = ctx.createRadialGradient(x, y, 0, x, y, PH * 0.12);
     g.addColorStop(0, U.rgba(U.WHITE, 0.5 * amt)); g.addColorStop(1, U.rgba(U.WHITE, 0));

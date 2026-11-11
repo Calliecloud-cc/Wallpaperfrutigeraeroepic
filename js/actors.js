@@ -171,19 +171,30 @@
   clouds.sort(function (a, b) { return a.s - b.s; });
 
   function drawClouds(ctx, P, w, dt, withLayer) {
-    var nf = 3 + 7 * w.cloud, speed = 0.6 + w.wind / 22;
+    // The artwork has its own clouds, so with it on, drifting clouds stay small, high and over the
+    // open sky on the left (fading out before the towers), and only build up as the weather clouds over.
+    var art = A.platesOn;
+    var nf = art ? 1 + 8 * U.clamp((w.cloud - 0.2) / 0.8, 0, 1) : 3 + 7 * w.cloud, speed = 0.6 + w.wind / 22;
+    var fadeX0 = (A.cfg.layout.cloudFadeX || [0.4, 0.55])[0] * PW, fadeX1 = (A.cfg.layout.cloudFadeX || [0.4, 0.55])[1] * PW;
     withLayer(function (l) {
       clouds.forEach(function (c) {
         c.x += c.v * speed * dt;
-        var cw = 460 * c.s, ch = 230 * c.s;
-        if (c.x > PW + 40) { c.x = -cw - U.rand(0, 200); c.y = (0.04 + Math.random() * 0.26) * PH; }
+        var sc = art ? c.s * 0.7 : c.s, cw = 460 * sc, ch = 230 * sc, y = art ? c.y * 0.6 : c.y;
+        var maxX = art ? fadeX1 : PW + 40;
+        if (c.x > maxX) { c.x = -cw - U.rand(0, 200); c.y = (0.04 + Math.random() * 0.26) * PH; }
         var a = U.clamp(nf - c.rank, 0, 1);
         if (a < 0.01) return;
-        l.globalAlpha = a * (0.85 + 0.15 * w.cloud);
-        l.drawImage(c.img, c.x, c.y - ch / 2, cw, ch);
+        l.globalAlpha = a * (art ? 0.8 : 0.85 + 0.15 * w.cloud);
+        l.drawImage(c.img, c.x, y - ch / 2, cw, ch);
       });
       l.globalAlpha = 1;
     }, function (l) {
+      if (art) {
+        l.globalCompositeOperation = 'destination-out';
+        var m = l.createLinearGradient(fadeX0, 0, fadeX1, 0);
+        m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+        l.fillStyle = m; l.fillRect(fadeX0, 0, PW - fadeX0, FS);
+      }
       l.globalCompositeOperation = 'source-atop';
       if (P.warm > 0.02) {
         var g = l.createLinearGradient(0, 0, 0, FS);
@@ -263,7 +274,7 @@
     ctx.fillStyle = '#10233a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.08, s * 0.45, 0, 0, TAU); ctx.fill();
     ctx.restore();
   }
-  var fireflies = U.points(U.rng(31), 26, 0.02, 0.98, 0.45, 0.53);
+  var fireflies = U.points(U.rng(31), 26, 0.02, 0.45, L.farShore - 0.08, L.farShore - 0.005);
   var pollen = U.points(U.rng(32), 18, 0.05, 0.6, 0.3, 0.5);
   function drawShoreLife(ctx, P, w, t) {
     var day = U.clamp((P.light - 0.4) / 0.5, 0, 1) * (1 - w.rain) * (1 - w.storm);
@@ -422,7 +433,7 @@
 
   /* light rays, caustics, snow, seaweed, bubbles */
   function drawRays(ctx, P, w, t) {
-    var a = 0.16 * Math.max(P.light - 0.15, 0) * (1 - w.cloud * 0.6) * (1 - w.storm * 0.8);
+    var a = 0.16 * Math.max(P.light - 0.15, 0) * (1 - w.cloud * 0.6) * (1 - w.storm * 0.8) * (A.platesOn ? 0.6 : 1);
     if (a < 0.004) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     var col = U.mix(U.WHITE, [255, 220, 150], P.warm);
@@ -437,7 +448,7 @@
   }
   var glints = U.points(U.rng(41), 60, 0, 1, L.reefTop - 0.03, 0.99);
   function drawCaustics(ctx, P, w, t) {
-    var a = 0.28 * P.light * (1 - w.cloud * 0.5) * (1 - w.storm);
+    var a = 0.28 * P.light * (1 - w.cloud * 0.5) * (1 - w.storm) * (A.platesOn ? 0.6 : 1);
     if (a < 0.02) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     glints.forEach(function (g) {
@@ -585,7 +596,8 @@
           var dy = 4 * pk * (2 * s - 1), dx = Math.abs(pod.x1 - pod.x0);
           var fade = U.clamp((s + 0.2) / 0.1, 0, 1) * U.clamp((1.2 - s) / 0.1, 0, 1);
           l.save(); l.globalAlpha = fade; l.translate(x, y); l.scale(pod.dir, 1); l.rotate(Math.atan2(dy, dx));
-          if (art.dolphin) sprite(l, art.dolphin, pod.len * m.sc); else dolphinProc(l, pod.len * m.sc, P);
+          if (art.dolphin) { l.rotate(0.35); sprite(l, art.dolphin, pod.len * m.sc); } // the sprite is already drawn nose-up
+          else dolphinProc(l, pod.len * m.sc, P);
           l.restore();
         });
       }, function (l) {
@@ -637,7 +649,7 @@
         l.fillStyle = g; l.fillRect(0, WL, PW, PH - WL);
       });
       drawJellies(ctx, P, t, dt);
-      drawWeeds(ctx, P, t);
+      if (!A.platesOn) drawWeeds(ctx, P, t);  // the artwork has its own reef
       drawBubbles(ctx, P, t, dt);
     },
     surface: function (ctx, P, w, t, dt, withLayer) {
